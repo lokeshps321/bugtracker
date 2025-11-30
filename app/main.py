@@ -448,7 +448,7 @@ async def health_check():
     """Health check endpoint for monitoring services"""
     return {"status": "healthy", "service": "bugflow-backend"}
 
-@app.post("/admin/init-db")
+@app.get("/admin/init-db")
 async def initialize_database(db: Session = Depends(get_db)):
     """Initialize database with demo users - ONE TIME USE ONLY"""
     from passlib.context import CryptContext
