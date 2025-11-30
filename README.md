@@ -1,4 +1,4 @@
-# BugFlow 🐛⚡
+# BugFlow 
 
 **Intelligent Bug Tracking System with AI/ML & MLOps**
 
