@@ -463,6 +463,7 @@ async def health_check():
 async def initialize_database(db: Session = Depends(get_db)):
     """Initialize database with demo users - ONE TIME USE ONLY"""
     from passlib.context import CryptContext
+    from app.models import User  # Import User model
     pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
     
     # Check if users already exist
