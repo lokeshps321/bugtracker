@@ -132,13 +132,7 @@ def predict(description: str):
         #     self.severity_model.eval()
         #     self.severity_id2label = {0: 'low', 1: 'medium', 2: 'high', 3: 'critical'}
 
-    try:
-        severity, team = predict_bug.predict(description)
-        logger.info(f"Prediction for '{description[:50]}...': severity={severity}, team={team}")
-        return severity, team
-    except Exception as e:
-        logger.error(f"Prediction error: {str(e)}")
-        raise
+    return predict_bug_attributes(description)
 
 
 def check_duplicate(description: str, db: Session):
