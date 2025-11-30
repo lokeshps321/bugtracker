@@ -15,6 +15,17 @@ import time
 
 from app.config import Config
 
+# Create FastAPI app
+app = FastAPI(title="BugFlow AI Backend")
+
+# Create database tables on startup
+@app.on_event("startup")
+async def startup_event():
+    """Create database tables if they don't exist"""
+    from app.database import Base, engine
+    Base.metadata.create_all(bind=engine)
+    print("✅ Database tables created/verified")
+
 # --- DEPENDENCIES ---
 
 from . import models
