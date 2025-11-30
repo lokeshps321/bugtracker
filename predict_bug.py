@@ -23,38 +23,6 @@ device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def load_model_and_vectorizer(reload=False):
     """
-    Load all ML models, tokenizer, labels, and deduplication model.
-    Moves models to GPU if available for faster inference.
-    """
-    global severity_model, team_model, tokenizer, severity_labels, team_labels, dedup_model, models_loaded, last_model_load_time, last_model_version, model_load_timestamp, device
-
-    try:
-        logger.info(f"Loading models (reload={reload}) on device: {device}...")
-        
-        # Initialize tokenizer
-        tokenizer = DistilBertTokenizer.from_pretrained('distilbert-base-uncased')
-
-        # Load severity model
-        try:
-            if os.path.exists('./severity_model_new'):
-                severity_model = DistilBertForSequenceClassification.from_pretrained('./severity_model_new')
-                logger.info("Loaded FINE-TUNED severity model from ./severity_model_new")
-            else:
-                severity_model = DistilBertForSequenceClassification.from_pretrained('./severity_model')
-                logger.info("Loaded old severity model from ./severity_model")
-            
-            severity_model.to(device)
-            severity_model.eval()
-            
-            # Load labels
-            try:
-                severity_labels = pd.read_json('severity_labels.json', typ='series').tolist()
-            except Exception:
-                severity_labels = ['low', 'medium', 'high', 'critical']
-        except Exception as e:
-            logger.error(f"Failed to load severity model: {str(e)}")
-            raise
-
         # Load team model
         team_model = None
         team_labels = ['Backend', 'Frontend', 'Mobile', 'DevOps']
