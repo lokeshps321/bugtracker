@@ -473,18 +473,17 @@ async def initialize_database(db: Session = Depends(get_db)):
     
     # Create demo users
     users_data = [
-        {"email": "pm1@example.com", "password": "password", "role": "pm", "full_name": "Project Manager"},
-        {"email": "tester1@example.com", "password": "password", "role": "tester", "full_name": "Tester One"},
-        {"email": "dev1@example.com", "password": "password", "role": "developer", "full_name": "Developer One"},
+        {"email": "pm1@example.com", "password": "password", "role": "pm"},
+        {"email": "tester1@example.com", "password": "password", "role": "tester"},
+        {"email": "dev1@example.com", "password": "password", "role": "developer"},
     ]
     
     for user_data in users_data:
         hashed_password = pwd_context.hash(user_data["password"])
         user = User(
             email=user_data["email"],
-            hashed_password=hashed_password,
-            role=user_data["role"],
-            full_name=user_data["full_name"]
+            password_hash=hashed_password,
+            role=user_data["role"]
         )
         db.add(user)
     
