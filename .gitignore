@@ -48,4 +48,5 @@ severity_model/
 team_model/
 models_for_deploy/
 *.safetensors
-*.bin
+*.bingithub_issues.csv
+hf_space/hf_repo/

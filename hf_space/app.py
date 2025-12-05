@@ -52,8 +52,12 @@ MOBILE_KEYWORDS = [
 
 SEVERITY_KEYWORDS = {
     "critical": ["crash", "crashes", "down", "outage", "data loss", "security", 
-                 "vulnerability", "breach", "blocked", "broken", "fail", "failure"],
-    "high": ["error", "not working", "bug", "issue", "problem", "cannot", "unable"],
+                 "vulnerability", "breach", "completely broken", "total failure",
+                 "all users", "production down", "cannot start", "won't start"],
+    "high": ["error", "not working", "bug", "fail", "failing", "failed", "failure",
+             "broken", "block", "blocking", "cannot", "unable", "stuck", "stale",
+             "abort", "aborting", "timeout", "expired", "missing", "lost",
+             "sync fail", "migration fail", "backup fail", "deploy fail"],
 }
 
 def detect_team_by_keywords(text):
@@ -78,9 +82,15 @@ def detect_severity_by_keywords(text):
     """Boost severity based on keywords"""
     text_lower = text.lower()
     
+    # Check for critical keywords
     for kw in SEVERITY_KEYWORDS["critical"]:
         if kw in text_lower:
-            return "critical" if "down" in text_lower or "crash" in text_lower else None, 0.90
+            return "critical", 0.95
+    
+    # Check for high keywords - blocking, failing, aborting issues
+    for kw in SEVERITY_KEYWORDS["high"]:
+        if kw in text_lower:
+            return "high", 0.90
     
     return None, 0
 
@@ -183,10 +193,11 @@ async def predict(request: PredictRequest):
             severity = severity_labels[sev_idx.item()]
             severity_confidence = sev_conf.item()
         
-        # Boost severity for critical keywords
+        # Boost severity for blocking/failing keywords
         kw_severity, kw_sev_conf = detect_severity_by_keywords(text)
-        if kw_severity and severity in ["low", "medium"] and kw_sev_conf > severity_confidence:
-            severity = "high"  # Boost to at least high if critical keywords found
+        if kw_severity and severity in ["low", "medium"]:
+            # Always boost if keywords indicate high/critical severity
+            severity = kw_severity
             severity_confidence = max(severity_confidence, kw_sev_conf)
         
         # Predict team with model
