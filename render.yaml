@@ -23,12 +23,11 @@ services:
         value: HS256
       - key: ACCESS_TOKEN_EXPIRE_MINUTES
         value: "30"
-      # Hugging Face Hub Models - UPDATE THESE WITH YOUR USERNAME!
-      # After running: python upload_to_huggingface.py --token YOUR_TOKEN --username YOUR_USERNAME
+      # Hugging Face Hub Models
       - key: HF_SEVERITY_MODEL
-        value: "YOUR_USERNAME/bugflow-severity-classifier"  # CHANGE THIS!
+        value: "loke007/bugflow-severity-classifier"
       - key: HF_TEAM_MODEL
-        value: "YOUR_USERNAME/bugflow-team-classifier"  # CHANGE THIS!
+        value: "loke007/bugflow-team-classifier"
       # Set to false to use fine-tuned models from Hugging Face Hub
       - key: USE_BASE_MODEL
         value: "false"
