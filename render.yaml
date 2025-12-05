@@ -31,6 +31,12 @@ services:
       # Set to false to use fine-tuned models from Hugging Face Hub
       - key: USE_BASE_MODEL
         value: "false"
+      # HF Space URL for ML inference (saves memory on Render)
+      - key: HF_SPACE_URL
+        value: "https://loke007-bugflow-inference.hf.space"
+      # Cloud mode flag - enables memory-saving features
+      - key: RENDER
+        value: "true"
     healthCheckPath: /health
     autoDeploy: true
 
