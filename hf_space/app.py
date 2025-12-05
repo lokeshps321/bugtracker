@@ -1,6 +1,7 @@
 """
 BugFlow ML Inference API - Hugging Face Space
 This runs on Hugging Face Spaces with 16GB RAM (FREE!)
+Enhanced with keyword-based boosting for DevOps and Mobile
 """
 
 from fastapi import FastAPI, HTTPException
@@ -27,6 +28,61 @@ tokenizer = None
 severity_labels = ['low', 'medium', 'high', 'critical']
 team_labels = ['Backend', 'Frontend', 'Mobile', 'DevOps']
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# Keyword-based detection for better DevOps and Mobile classification
+DEVOPS_KEYWORDS = [
+    "ci/cd", "cicd", "pipeline", "jenkins", "github actions", "gitlab ci", 
+    "docker", "container", "kubernetes", "k8s", "helm", "pod", "deployment",
+    "terraform", "ansible", "aws", "azure", "gcp", "cloud", "ec2", "s3",
+    "load balancer", "nginx", "ssl", "certificate", "dns", "cdn",
+    "prometheus", "grafana", "monitoring", "alerting", "logging", "elk",
+    "backup", "restore", "staging", "production", "environment",
+    "infrastructure", "devops", "sre", "deploy", "rollback", "release",
+    "nightly", "cron", "scheduled job", "sync", "migration script"
+]
+
+MOBILE_KEYWORDS = [
+    "ios", "android", "mobile", "iphone", "ipad", "samsung", "pixel",
+    "react native", "flutter", "swift", "kotlin", "xcode", "android studio",
+    "app store", "play store", "apk", "ipa", "provisioning", "certificate",
+    "push notification", "fcm", "apns", "deep link", "biometric",
+    "face id", "touch id", "fingerprint", "gps", "location", "camera",
+    "battery", "offline", "tablet", "phone", "smartphone", "wearable"
+]
+
+SEVERITY_KEYWORDS = {
+    "critical": ["crash", "crashes", "down", "outage", "data loss", "security", 
+                 "vulnerability", "breach", "blocked", "broken", "fail", "failure"],
+    "high": ["error", "not working", "bug", "issue", "problem", "cannot", "unable"],
+}
+
+def detect_team_by_keywords(text):
+    """Detect team based on keyword matching"""
+    text_lower = text.lower()
+    
+    devops_score = sum(1 for kw in DEVOPS_KEYWORDS if kw in text_lower)
+    mobile_score = sum(1 for kw in MOBILE_KEYWORDS if kw in text_lower)
+    
+    if devops_score >= 2:
+        return "DevOps", 0.95
+    if mobile_score >= 2:
+        return "Mobile", 0.95
+    if devops_score == 1:
+        return "DevOps", 0.80
+    if mobile_score == 1:
+        return "Mobile", 0.80
+    
+    return None, 0
+
+def detect_severity_by_keywords(text):
+    """Boost severity based on keywords"""
+    text_lower = text.lower()
+    
+    for kw in SEVERITY_KEYWORDS["critical"]:
+        if kw in text_lower:
+            return "critical" if "down" in text_lower or "crash" in text_lower else None, 0.90
+    
+    return None, 0
 
 class PredictRequest(BaseModel):
     description: str
@@ -119,7 +175,7 @@ async def predict(request: PredictRequest):
             return_tensors="pt"
         ).to(device)
         
-        # Predict severity
+        # Predict severity with model
         with torch.no_grad():
             outputs = severity_model(**inputs)
             probs = torch.softmax(outputs.logits, dim=1)
@@ -127,13 +183,30 @@ async def predict(request: PredictRequest):
             severity = severity_labels[sev_idx.item()]
             severity_confidence = sev_conf.item()
         
-        # Predict team
+        # Boost severity for critical keywords
+        kw_severity, kw_sev_conf = detect_severity_by_keywords(text)
+        if kw_severity and severity in ["low", "medium"] and kw_sev_conf > severity_confidence:
+            severity = "high"  # Boost to at least high if critical keywords found
+            severity_confidence = max(severity_confidence, kw_sev_conf)
+        
+        # Predict team with model
         with torch.no_grad():
             outputs = team_model(**inputs)
             probs = torch.softmax(outputs.logits, dim=1)
             team_conf, team_idx = torch.max(probs, dim=1)
             team = team_labels[team_idx.item()]
             team_confidence = team_conf.item()
+        
+        # Keyword-based boost for DevOps and Mobile
+        kw_team, kw_conf = detect_team_by_keywords(text)
+        if kw_team:
+            # If keywords strongly indicate DevOps/Mobile and model is uncertain
+            if kw_conf > 0.8 and team not in ["DevOps", "Mobile"]:
+                # Override if model confidence is low or keyword match is strong
+                if team_confidence < 0.8 or kw_conf >= 0.95:
+                    logger.info(f"Keyword boost: {team} -> {kw_team} (kw={kw_conf:.2f}, model={team_confidence:.2f})")
+                    team = kw_team
+                    team_confidence = max(team_confidence, kw_conf)
         
         return PredictResponse(
             severity=severity,
@@ -149,3 +222,4 @@ async def predict(request: PredictRequest):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=7860)
+
