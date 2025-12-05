@@ -4,9 +4,13 @@ from app import models
 from sqlalchemy.orm import Session
 import numpy as np
 import logging
+import os
 import predict_bug
 
 logger = logging.getLogger(__name__)
+
+# Cloud mode detection - skip heavy models to fit in 512MB
+CLOUD_MODE = os.getenv('HF_SPACE_URL') is not None or os.getenv('RENDER', '') == 'true'
 
 # Global variables
 dedup_model = None
@@ -36,8 +40,16 @@ def load_dedup_model():
     """
     Load only deduplication model.
     This is used exclusively for duplicate checking during bug submission.
+    Skipped on cloud to save memory (512MB limit on Render free tier).
     """
     global dedup_model, dedup_models_loaded
+    
+    # Skip on cloud - dedup model is too large for 512MB Render
+    if CLOUD_MODE:
+        logger.info("Cloud mode: Skipping deduplication model to save memory")
+        dedup_models_loaded = True  # Mark as "loaded" but model is None
+        return
+    
     try:
         # Load the deduplication model
         dedup_model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -139,16 +151,18 @@ def check_duplicate(description: str, db: Session):
     """
     Check if a bug description is a duplicate.
     Returns the existing bug object if found, else None.
+    On cloud (512MB limit), dedup is skipped to save memory.
     """
     global dedup_model, dedup_models_loaded
-    # Always ensure the deduplication model is loaded and potentially refreshed
+    
+    # Ensure the deduplication model is loaded
     if not dedup_models_loaded:
         load_dedup_model()
-
-    # Check for model updates each time for deduplication
-    # This ensures that if the dedup_model was updated, we have the latest version
-    import predict_bug
-    predict_bug.check_and_reload_models()
+    
+    # On cloud mode, dedup_model is None - skip deduplication
+    if dedup_model is None:
+        logger.info("Cloud mode: Skipping duplicate check (dedup model not loaded)")
+        return None
 
     try:
         bugs = db.query(models.Bug).all()
@@ -169,3 +183,4 @@ def check_duplicate(description: str, db: Session):
     except Exception as e:
         logger.error(f"Deduplication error: {str(e)}")
         return None
+
