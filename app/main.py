@@ -8,7 +8,7 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
-from datetime import timedelta
+from datetime import timedelta, datetime
 from typing import Optional, List
 import threading
 import time
@@ -21,10 +21,19 @@ app = FastAPI(title="BugFlow AI Backend")
 # Create database tables on startup
 @app.on_event("startup")
 async def startup_event():
-    """Create database tables if they don't exist"""
+    """Create database tables and preload ML models"""
     from app.database import Base, engine
     Base.metadata.create_all(bind=engine)
     print("✅ Database tables created/verified")
+    
+    # Preload ML models for faster predictions
+    print("🔄 Preloading ML models...")
+    try:
+        import predict_bug
+        predict_bug.load_model_and_vectorizer()
+        print("✅ ML models preloaded - predictions will be fast!")
+    except Exception as e:
+        print(f"⚠️ ML model preload failed: {e}")
 
 # --- DEPENDENCIES ---
 
@@ -131,7 +140,9 @@ async def predict_bug(data: schemas.BugCreate):
         time.sleep(0.5)
         wait_count += 1
 
-    severity, team = predict_bug_attributes(data.description)
+    # Combine title and description for better prediction
+    full_text = f"{data.title}. {data.description}" if data.title else data.description
+    severity, team = predict_bug_attributes(full_text)
     return {"severity": severity, "team": team}
 
 
@@ -153,7 +164,9 @@ async def report_bug(
     if not db_user:
         raise HTTPException(status_code=404, detail="User not found in database")
 
-    severity, team = predict_bug_attributes(data.description)
+    # Combine title and description for better prediction
+    full_text = f"{data.title}. {data.description}" if data.title else data.description
+    severity, team = predict_bug_attributes(full_text)
 
     # check_for_duplicate returns a Bug object or None
     duplicate_bug_object = check_for_duplicate(data.description, db)
@@ -423,14 +436,22 @@ async def get_feedback_count(db: Session = Depends(get_db)):
 @app.get("/feedback_history")
 async def get_feedback_history(db: Session = Depends(get_db)):
     try:
-        # MOCK DATA for chart testing in Streamlit:
-        return [
-            {"date": "2025-10-15", "count": 5},
-            {"date": "2025-10-16", "count": 12},
-            {"date": "2025-10-17", "count": 25},
-            {"date": "2025-10-18", "count": 40},
-            {"date": "2025-10-19", "count": 48},
-        ]
+        # Fetch all feedback and aggregate by date in Python for DB compatibility
+        feedbacks = db.query(models.Feedback).all()
+        from collections import defaultdict
+        counts = defaultdict(int)
+        
+        for f in feedbacks:
+            if f.created_at:
+                date_str = f.created_at.strftime("%Y-%m-%d")
+                counts[date_str] += 1
+        
+        # Convert to list of dicts and sort by date
+        result = [{"date": k, "count": v} for k, v in sorted(counts.items())]
+        return result
+    except Exception as e:
+        print(f"Database error fetching feedback history: {e}")
+        return []
     except Exception as e:
         print(f"Database error fetching feedback history: {e}")
         return []
@@ -440,11 +461,42 @@ async def get_feedback_history(db: Session = Depends(get_db)):
 # ----------------------------------------------------
 
 @app.get("/notifications")
-async def get_notifications():
-    return [
-        {"message": "System: Fine-tuning data collection hit 50 corrections.", "timestamp": "2025-10-20"},
-        {"message": "Bug #10 resolved and closed.", "timestamp": "2025-10-19"},
-    ]
+async def get_notifications(db: Session = Depends(get_db)):
+    """Get real notifications from database, plus recent activity"""
+    notifications = []
+    
+    # Get notifications from database
+    db_notifications = db.query(models.Notification).order_by(
+        models.Notification.created_at.desc()
+    ).limit(20).all()
+    
+    for n in db_notifications:
+        notifications.append({
+            "message": n.message,
+            "timestamp": n.created_at.strftime("%Y-%m-%d %H:%M") if n.created_at else "N/A"
+        })
+    
+    # Add recent bug activity as notifications
+    recent_bugs = db.query(models.Bug).order_by(
+        models.Bug.updated_at.desc()
+    ).limit(5).all()
+    
+    for bug in recent_bugs:
+        notifications.append({
+            "message": f"Bug #{bug.id}: {bug.title or 'Untitled'} - Status: {bug.status}",
+            "timestamp": bug.updated_at.strftime("%Y-%m-%d %H:%M") if bug.updated_at else "N/A"
+        })
+    
+    # Add recent feedback as notifications
+    feedback_count = db.query(models.Feedback).count()
+    if feedback_count > 0:
+        notifications.insert(0, {
+            "message": f"MLOps: {feedback_count} expert corrections collected for model improvement",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M")
+        })
+    
+    # Sort by timestamp (recent first)
+    return notifications if notifications else [{"message": "No notifications yet", "timestamp": ""}]
 
 # ----------------------------------------------------
 # 6. ROOT ROUTE

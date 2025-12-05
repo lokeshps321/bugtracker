@@ -1,0 +1,53 @@
+# Render Blueprint for BugFlow Backend
+# https://render.com/docs/yaml-spec
+
+services:
+  # Backend Web Service
+  - type: web
+    name: bugflow-backend
+    runtime: python
+    region: oregon  # or your preferred region
+    plan: free  # or starter, standard for production
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: bugflow-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "30"
+      # Hugging Face Hub Models - UPDATE THESE WITH YOUR USERNAME!
+      # After running: python upload_to_huggingface.py --token YOUR_TOKEN --username YOUR_USERNAME
+      - key: HF_SEVERITY_MODEL
+        value: "YOUR_USERNAME/bugflow-severity-classifier"  # CHANGE THIS!
+      - key: HF_TEAM_MODEL
+        value: "YOUR_USERNAME/bugflow-team-classifier"  # CHANGE THIS!
+      # Set to false to use fine-tuned models from Hugging Face Hub
+      - key: USE_BASE_MODEL
+        value: "false"
+    healthCheckPath: /health
+    autoDeploy: true
+
+  # Frontend (if hosting on Render, otherwise use Streamlit Cloud)
+  # - type: web
+  #   name: bugflow-frontend
+  #   runtime: python
+  #   buildCommand: pip install -r frontend/requirements.txt
+  #   startCommand: streamlit run frontend/app.py --server.port $PORT --server.address 0.0.0.0
+  #   envVars:
+  #     - key: API_URL
+  #       value: https://bugflow-backend.onrender.com
+
+databases:
+  - name: bugflow-db
+    plan: free  # or starter, standard for production
+    databaseName: bugflow
+    user: bugflow_user
+    region: oregon

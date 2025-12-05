@@ -39,7 +39,13 @@ datasets/checkpoints/
 # Environment variables (if containing secrets)
 .env
 
-# Large files (optional - remove if you want to track models)
-# *.bin
-# *.safetensors
-# *.whl
+# ML Models (using Hugging Face Hub for cloud deployment)
+severity_model_new/
+severity_model_specialized/
+team_model_new/
+team_model_specialized/
+severity_model/
+team_model/
+models_for_deploy/
+*.safetensors
+*.bin

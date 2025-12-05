@@ -132,7 +132,7 @@ def predict(description: str):
         #     self.severity_model.eval()
         #     self.severity_id2label = {0: 'low', 1: 'medium', 2: 'high', 3: 'critical'}
 
-    return predict_bug_attributes(description)
+    return predict_bug.predict(description)
 
 
 def check_duplicate(description: str, db: Session):
