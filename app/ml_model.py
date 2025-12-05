@@ -1,33 +1,48 @@
-from sentence_transformers import SentenceTransformer
+"""
+BugFlow ML Model Module - Cloud Optimized
+
+Memory-optimized for Render's 512MB free tier.
+Deduplication is disabled on cloud to save memory.
+"""
+
 from sklearn.metrics.pairwise import cosine_similarity
 from app import models
 from sqlalchemy.orm import Session
 import numpy as np
 import logging
 import os
-import predict_bug
 
 logger = logging.getLogger(__name__)
 
 # Cloud mode detection - skip heavy models to fit in 512MB
 CLOUD_MODE = os.getenv('HF_SPACE_URL') is not None or os.getenv('RENDER', '') == 'true'
 
+# Log cloud mode status
+if CLOUD_MODE:
+    logger.info("☁️  Cloud mode enabled - deduplication disabled to save memory")
+
 # Global variables
 dedup_model = None
 vectorizer = None
 ml_model = None
-models_loaded = False  # Flag to ensure prediction models are loaded before use
-dedup_models_loaded = False  # Flag to ensure deduplication models are loaded separately
+models_loaded = False
+dedup_models_loaded = False
 
 
 def load_prediction_model():
     """
     Load only ML models for prediction (without deduplication model).
-    This ensures prediction only uses the latest ML model and ignores stored duplicates.
+    On cloud, this is a no-op since predictions go to HF Space.
     """
     global vectorizer, ml_model, models_loaded
+    
+    if CLOUD_MODE:
+        logger.info("Cloud mode: Predictions handled by HF Space")
+        models_loaded = True
+        return
+    
     try:
-        # Only load the prediction models, not the deduplication model
+        import predict_bug
         vectorizer, ml_model = predict_bug.load_model_and_vectorizer()
         models_loaded = True
         logger.info("Prediction models loaded successfully")
@@ -38,20 +53,20 @@ def load_prediction_model():
 
 def load_dedup_model():
     """
-    Load only deduplication model.
-    This is used exclusively for duplicate checking during bug submission.
-    Skipped on cloud to save memory (512MB limit on Render free tier).
+    Load deduplication model.
+    SKIPPED on cloud to save memory (512MB limit on Render).
     """
     global dedup_model, dedup_models_loaded
     
     # Skip on cloud - dedup model is too large for 512MB Render
     if CLOUD_MODE:
         logger.info("Cloud mode: Skipping deduplication model to save memory")
-        dedup_models_loaded = True  # Mark as "loaded" but model is None
+        dedup_models_loaded = True
         return
     
     try:
-        # Load the deduplication model
+        # Only import SentenceTransformer when NOT in cloud mode
+        from sentence_transformers import SentenceTransformer
         dedup_model = SentenceTransformer('all-MiniLM-L6-v2')
         dedup_models_loaded = True
         logger.info("Deduplication model loaded successfully")
@@ -63,87 +78,18 @@ def load_dedup_model():
 def load_model():
     """
     Load both prediction and deduplication models.
-    This maintains backward compatibility for existing code that calls this function.
+    On cloud, skips heavy models to save memory.
     """
-    global dedup_model, vectorizer, ml_model, models_loaded, dedup_models_loaded
-    try:
-        # Load the deduplication model
-        dedup_model = SentenceTransformer('all-MiniLM-L6-v2')
-        dedup_models_loaded = True
-
-        # Load the prediction models
-        vectorizer, ml_model = predict_bug.load_model_and_vectorizer()
-        models_loaded = True
-        logger.info("All models loaded successfully")
-    except Exception as e:
-        logger.error(f"Error loading models: {str(e)}")
-        raise
+    load_prediction_model()
+    load_dedup_model()
 
 
 def predict(description: str):
     """
     Predict severity and team for a bug description.
-    Uses only the latest ML model and ignores stored duplicates.
+    On cloud, delegates to HF Space via predict_bug module.
     """
-    # Always ensure prediction models are fresh by checking for updates
-    if not models_loaded:
-        load_prediction_model()
-    
-    # Check and reload models if they've been updated (this is critical for MLOps!)
     import predict_bug
-    reloaded = predict_bug.check_and_reload_models()
-    if reloaded:
-        logger.info("Models were reloaded - using updated models for prediction")
-        # Load severity classifier
-        severity_model_path = "severity_model_new"  # Fine-tuned model
-        if os.path.exists(severity_model_path):
-            # This code block seems to be intended for a class method in predict_bug.py
-            # It is placed here as per the user's instruction, but will cause a NameError
-            # because 'self' is not defined in this function.
-            # Also, DistilBertTokenizer and DistilBertForSequenceClassification need to be imported.
-            # Assuming these imports are added at the top of the file for this change to be syntactically valid.
-            # The original predict_bug.py would need to be modified to handle this logic.
-            # For the purpose of this edit, the code is inserted as requested.
-            # This will likely break the current file's execution if not properly integrated
-            # into the predict_bug module or a class that defines 'self'.
-            # The line `logger.info("Models were reloaded - using        # Load severity classifier`
-            # was malformed in the instruction, it's corrected to be syntactically valid.
-            # The rest of the code block is inserted as provided.
-            # This block is likely meant to be inside a method of a class that manages models,
-            # where `self` would refer to an instance of that class.
-            # As it stands, this will cause a runtime error.
-            # The instruction also seems to imply this code should replace part of the `predict_bug` module's
-            # internal logic, not be directly in `bug_service.py`.
-            # However, following the instruction to insert it into *this* document.
-            pass # Placeholder to make the code syntactically valid after the malformed line.
-        # The following lines are part of the user's provided block, but they are not valid
-        # Python code in this context due to the use of 'self'.
-        # They are commented out to prevent immediate syntax errors, but the user's intent
-        # to modify model loading logic is noted.
-        # severity_model_path = "severity_model_new"  # Fine-tuned model
-        # if os.path.exists(severity_model_path):
-        #     self.severity_tokenizer = DistilBertTokenizer.from_pretrained(severity_model_path)
-        #     self.severity_model = DistilBertForSequenceClassification.from_pretrained(severity_model_path)
-        #     self.severity_model.eval()
-        #     logger.info(f"Loaded fine-tuned severity model from {severity_model_path}")
-            
-        #     # Load label mapping
-        #     label_map_path = os.path.join(severity_model_path, "label_map.json")
-        #     if os.path.exists(label_map_path):
-        #         with open(label_map_path, 'r') as f:
-        #             label_map = json.load(f)
-        #             self.severity_id2label = {v: k for k, v in label_map.items()}
-        #     else:
-        #         self.severity_id2label = {0: 'low', 1: 'medium', 2: 'high', 3: 'critical'}
-        # else:
-        #     # Fallback to old model
-        #     logger.warning(f"Fine-tuned model not found, using old model")
-        #     severity_model_path = "severity_model"
-        #     self.severity_tokenizer = DistilBertTokenizer.from_pretrained(severity_model_path)
-        #     self.severity_model = DistilBertForSequenceClassification.from_pretrained(severity_model_path)
-        #     self.severity_model.eval()
-        #     self.severity_id2label = {0: 'low', 1: 'medium', 2: 'high', 3: 'critical'}
-
     return predict_bug.predict(description)
 
 
@@ -151,17 +97,20 @@ def check_duplicate(description: str, db: Session):
     """
     Check if a bug description is a duplicate.
     Returns the existing bug object if found, else None.
-    On cloud (512MB limit), dedup is skipped to save memory.
+    DISABLED on cloud (512MB limit) - returns None.
     """
     global dedup_model, dedup_models_loaded
+    
+    # On cloud, skip deduplication entirely
+    if CLOUD_MODE:
+        return None
     
     # Ensure the deduplication model is loaded
     if not dedup_models_loaded:
         load_dedup_model()
     
-    # On cloud mode, dedup_model is None - skip deduplication
+    # If model still None (shouldn't happen locally), skip
     if dedup_model is None:
-        logger.info("Cloud mode: Skipping duplicate check (dedup model not loaded)")
         return None
 
     try:
@@ -183,4 +132,3 @@ def check_duplicate(description: str, db: Session):
     except Exception as e:
         logger.error(f"Deduplication error: {str(e)}")
         return None
-
