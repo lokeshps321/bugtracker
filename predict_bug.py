@@ -30,9 +30,9 @@ last_model_version = 0
 model_load_timestamp = 0
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-# Hugging Face Hub configuration
-HF_SEVERITY_MODEL = os.getenv('HF_SEVERITY_MODEL', '')  # e.g., "username/bugflow-severity-classifier"
-HF_TEAM_MODEL = os.getenv('HF_TEAM_MODEL', '')  # e.g., "username/bugflow-team-classifier"
+# Hugging Face Hub configuration - default to loke007's models
+HF_SEVERITY_MODEL = os.getenv('HF_SEVERITY_MODEL', 'loke007/bugflow-severity-classifier')
+HF_TEAM_MODEL = os.getenv('HF_TEAM_MODEL', 'loke007/bugflow-team-classifier')
 
 
 def load_model_from_hub_or_local(model_type):
