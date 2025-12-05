@@ -7,8 +7,12 @@ import pandas as pd # Added for the analytics chart
 from streamlit_option_menu import option_menu # Modern sidebar
 import os
 
-# Use environment variable for API URL (cloud deployment support)
-API_URL = os.getenv("API_URL", "http://localhost:8000")
+# Use Streamlit secrets for API URL (Streamlit Cloud deployment)
+# Priority: st.secrets > env var > default
+try:
+    API_URL = st.secrets.get("API_URL", os.getenv("API_URL", "http://localhost:8000"))
+except:
+    API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 from streamlit_lottie import st_lottie
 import time
@@ -702,29 +706,34 @@ def pm_dashboard_page():
             feedback_count = 0 # Handle case where response isn't valid JSON
 
     
-    col_ai_1, col_ai_2, col_ai_3 = st.columns(3)
+    col_ai_1, col_ai_2, col_ai_3, col_ai_4 = st.columns(4)
     with col_ai_1:
         # This shows the data collection for fine-tuning
-        small_card("Training Data Collected", feedback_count, 
-                   "Total expert corrections since last fine-tuning run.", 
+        small_card("Training Data", feedback_count, 
+                   "Expert corrections collected", 
                    bg_color="#e0f2fe") # blue-50
     with col_ai_2:
         # This shows the PM what needs to happen to trigger the next fine-tune
         FINE_TUNE_THRESHOLD = 50  # Changed to 50 as requested for robust MLOps
         if feedback_count >= FINE_TUNE_THRESHOLD:
-            status_text = "Ready (Auto-Retraining)"
+            status_text = "Ready"
             bg_color = "#93c5fd" # Blue (auto-retraining now happens with each feedback)
         else:
-            status_text = f"Collecting ({FINE_TUNE_THRESHOLD - feedback_count} to go)"
+            status_text = f"{FINE_TUNE_THRESHOLD - feedback_count} to go"
             bg_color = "#d1fae5" # Green
 
-        small_card("Next Fine-Tune Trigger", status_text,
-                   f"Real-time retraining after each feedback correction.",
+        small_card("Fine-Tune Status", status_text,
+                   "Auto-retrain threshold",
                    bg_color=bg_color)
     with col_ai_3:
-        # This confirms the fine-tuned model is live
-        small_card("Model Status", "In Production (Stable)", 
-                   "DistilBERT/SentenceTransformer models are running live.", 
+        # Classification model status
+        small_card("Classifier", "DistilBERT", 
+                   "Production Stable", 
+                   bg_color="#d1fae5") # green-50
+    with col_ai_4:
+        # Deduplication model status
+        small_card("Dedup Model", "MiniLM-L6", 
+                   "Production Stable", 
                    bg_color="#d1fae5") # green-50
     # --- END NEW AI/MLOps Section ---
     
@@ -777,14 +786,22 @@ def pm_dashboard_page():
             team_counts = df['team'].value_counts().reset_index()
             team_counts.columns = ['team', 'count']
             
+            # Super bright electric neon colors for each team
+            team_colors = {
+                'Frontend': '#00ffff',  # Electric Cyan
+                'Backend': '#39ff14',   # Electric Lime
+                'Mobile': '#ff3131',    # Electric Red
+                'DevOps': '#bf00ff',    # Electric Magenta
+                'Unknown': '#fff700'    # Electric Yellow
+            }
+            bar_colors = [team_colors.get(t, '#ff1493') for t in team_counts['team']]
+            
             fig_bar = go.Figure(data=[go.Bar(
                 y=team_counts['team'], # y for horizontal
                 x=team_counts['count'],
                 orientation='h',
                 marker=dict(
-                    color=team_counts['count'],
-                    colorscale='Plasma', # Very rich purple-orange gradient
-                    showscale=False,
+                    color=bar_colors,
                     line=dict(width=0)
                 ),
                 text=team_counts['count'],
