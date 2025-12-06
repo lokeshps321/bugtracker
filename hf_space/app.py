@@ -333,7 +333,12 @@ async def check_duplicate(request: DuplicateCheckRequest):
     """Check if a bug description is a duplicate of existing bugs"""
     global dedup_model
     
+    logger.info(f"check_duplicate called with description: '{request.description[:50]}...'")
+    logger.info(f"Number of existing descriptions: {len(request.existing_descriptions)}")
+    logger.info(f"dedup_model is None: {dedup_model is None}")
+    
     if dedup_model is None:
+        logger.error("Deduplication model not loaded!")
         raise HTTPException(status_code=503, detail="Deduplication model not loaded")
     
     if not request.existing_descriptions:
@@ -342,16 +347,25 @@ async def check_duplicate(request: DuplicateCheckRequest):
     try:
         # Encode all descriptions
         all_descriptions = [request.description] + request.existing_descriptions
-        embeddings = dedup_model.encode(all_descriptions)
+        logger.info(f"Encoding {len(all_descriptions)} descriptions...")
+        
+        embeddings = dedup_model.encode(all_descriptions, convert_to_numpy=True)
+        logger.info(f"Embeddings shape: {embeddings.shape}")
         
         # Calculate similarity between new description and all existing ones
         new_embedding = embeddings[0].reshape(1, -1)
         existing_embeddings = embeddings[1:]
         
+        logger.info(f"New embedding shape: {new_embedding.shape}")
+        logger.info(f"Existing embeddings shape: {existing_embeddings.shape}")
+        
         similarities = cosine_similarity(new_embedding, existing_embeddings)[0]
+        logger.info(f"Similarities: {similarities}")
         
         max_similarity = float(np.max(similarities))
         max_index = int(np.argmax(similarities))
+        
+        logger.info(f"Max similarity: {max_similarity}, at index: {max_index}")
         
         # Threshold for duplicate detection (0.9 = 90% similar)
         is_duplicate = max_similarity > 0.9
@@ -364,6 +378,8 @@ async def check_duplicate(request: DuplicateCheckRequest):
         
     except Exception as e:
         logger.error(f"Deduplication error: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 

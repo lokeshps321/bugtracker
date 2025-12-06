@@ -307,6 +307,14 @@ def api_get(endpoint, params=None):
         st.error(f"Network error calling {endpoint}: {e}")
         return None
 
+def api_delete(endpoint):
+    try:
+        r = requests.delete(f"{API_URL.rstrip('/')}/{endpoint.lstrip('/')}", headers=_headers(), timeout=60)
+        return r
+    except Exception as e:
+        st.error(f"Network error calling {endpoint}: {e}")
+        return None
+
 # ------------------------------
 # Auth helpers
 # ------------------------------
@@ -639,8 +647,43 @@ def tester_my_bugs_page():
         st.info("No bugs match the selected filters.")
     else:
         for b in filtered_bugs:
-            # Use the new bug_card component for consistent look
-            bug_card(b, role="tester")
+            # Display bug card with delete button
+            bug_id = b.get('id')
+            title = b.get('title') or b.get('description', '')[:50] + "..."
+            
+            with st.container():
+                col1, col2 = st.columns([5, 1])
+                
+                with col1:
+                    # Use the bug_card component for consistent look
+                    bug_card(b, role="tester")
+                
+                with col2:
+                    st.markdown("<div style='margin-top: 20px;'></div>", unsafe_allow_html=True)
+                    # Delete button with unique key
+                    if st.button(f"🗑️ Delete", key=f"delete_bug_{bug_id}", use_container_width=True):
+                        # Set confirmation state
+                        st.session_state[f"confirm_delete_{bug_id}"] = True
+                    
+                    # Show confirmation if clicked
+                    if st.session_state.get(f"confirm_delete_{bug_id}", False):
+                        st.warning(f"Delete Bug #{bug_id}?")
+                        col_yes, col_no = st.columns(2)
+                        with col_yes:
+                            if st.button("✓ Yes", key=f"confirm_yes_{bug_id}", use_container_width=True):
+                                resp = api_delete(f"bugs/{bug_id}")
+                                if resp and resp.status_code == 200:
+                                    st.success(f"Bug #{bug_id} deleted!")
+                                    st.session_state[f"confirm_delete_{bug_id}"] = False
+                                    time.sleep(0.5)
+                                    st.rerun()
+                                else:
+                                    detail = resp.json().get("detail", "Unknown error") if resp else "Network error"
+                                    st.error(f"Failed: {detail}")
+                        with col_no:
+                            if st.button("✗ No", key=f"confirm_no_{bug_id}", use_container_width=True):
+                                st.session_state[f"confirm_delete_{bug_id}"] = False
+                                st.rerun()
 
 # ------------------------------
 # Developer pages

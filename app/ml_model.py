@@ -97,9 +97,13 @@ def check_duplicate(description: str, db: Session):
     """
     Check if a bug description is a duplicate.
     Returns the existing bug object if found, else None.
-    On cloud, calls HF Space API for deduplication.
+    DISABLED on cloud (HF Space API not accessible from external servers).
     """
     global dedup_model, dedup_models_loaded
+    
+    # On cloud, skip deduplication (HF Space API blocked for external calls)
+    if CLOUD_MODE:
+        return None
     
     try:
         bugs = db.query(models.Bug).all()
@@ -107,31 +111,6 @@ def check_duplicate(description: str, db: Session):
             return None
         
         descriptions = [bug.description for bug in bugs]
-        
-        # On cloud, call HF Space API for deduplication
-        if CLOUD_MODE:
-            import requests
-            HF_SPACE_URL = os.getenv('HF_SPACE_URL', 'https://loke007-bugflow-inference.hf.space')
-            try:
-                response = requests.post(
-                    f"{HF_SPACE_URL}/check_duplicate",
-                    json={
-                        "description": description,
-                        "existing_descriptions": descriptions
-                    },
-                    timeout=30
-                )
-                if response.status_code == 200:
-                    result = response.json()
-                    if result.get("is_duplicate", False):
-                        duplicate_index = result.get("duplicate_index", -1)
-                        if 0 <= duplicate_index < len(bugs):
-                            logger.info(f"Duplicate found via HF Space (similarity: {result.get('similarity_score', 0):.2f})")
-                            return bugs[duplicate_index]
-                return None
-            except Exception as e:
-                logger.error(f"HF Space deduplication call failed: {str(e)}")
-                return None
         
         # Local mode: use local model
         if not dedup_models_loaded:

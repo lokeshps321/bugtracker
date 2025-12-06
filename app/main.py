@@ -404,6 +404,46 @@ async def update_bug_and_feedback(
 async def get_all_bugs(db: Session = Depends(get_db)):
     return db.query(models.Bug).all()
 
+
+@app.delete("/bugs/{bug_id}")
+async def delete_bug(
+    bug_id: int,
+    db: Session = Depends(get_db),
+    current_user: schemas.User = Depends(get_current_user)
+):
+    """
+    Delete a bug. Testers can delete their own bugs.
+    Project managers can delete any bug.
+    """
+    bug = db.query(models.Bug).filter(models.Bug.id == bug_id).first()
+    if not bug:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bug not found")
+    
+    # Get the database user to check reporter_id
+    db_user = db.query(models.User).filter(models.User.email == current_user.email).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found in database")
+    
+    # Check permissions: testers can only delete their own bugs, PM can delete any
+    user_role = getattr(current_user, 'role', 'user')
+    is_pm = user_role == 'project_manager' or current_user.email == 'pm1@example.com'
+    is_owner = bug.reporter_id == db_user.id
+    
+    if not (is_pm or is_owner):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete bugs you reported"
+        )
+    
+    # Delete associated feedback first (foreign key constraint)
+    db.query(models.Feedback).filter(models.Feedback.bug_id == bug_id).delete()
+    
+    # Delete the bug
+    db.delete(bug)
+    db.commit()
+    
+    return {"message": f"Bug #{bug_id} deleted successfully"}
+
 @app.post("/trigger_retrain")
 async def trigger_retrain(
     background_tasks: BackgroundTasks,
