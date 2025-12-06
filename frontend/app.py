@@ -16,6 +16,25 @@ except:
 
 from streamlit_lottie import st_lottie
 import time
+import threading
+
+# ------------------------------
+# Keep-Alive Ping (Prevents Render.com cold starts)
+# ------------------------------
+def keep_alive_ping():
+    """
+    Ping the backend /health endpoint to keep Render.com free tier awake.
+    This runs in a background thread when the app loads.
+    """
+    try:
+        requests.get(f"{API_URL}/health", timeout=5)
+    except:
+        pass  # Silently ignore failures
+
+# Run keep-alive ping on app load (in background to not block UI)
+if "keep_alive_started" not in st.session_state:
+    st.session_state.keep_alive_started = True
+    threading.Thread(target=keep_alive_ping, daemon=True).start()
 
 # ------------------------------
 # Page config - must be first Streamlit command
