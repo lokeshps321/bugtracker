@@ -303,10 +303,11 @@ def login(email, password):
     If /current_user is missing, fallback to DEMO_ROLE_MAP.
     """
     # POST form-data-compatible to /token (many backends accept form data; tests expect form-data)
+    # NOTE: Using 120s timeout to handle Render.com free tier cold starts (can take 30-60s)
     try:
-        r = requests.post(f"{API_URL}/token", data={"username": email, "password": password}, timeout=6)
+        r = requests.post(f"{API_URL}/token", data={"username": email, "password": password}, timeout=120)
     except Exception as e:
-        st.error(f"Could not reach backend: {e}")
+        st.error(f"Could not reach backend: {e}. If using Render free tier, the backend may be starting up - please try again in 30-60 seconds.")
         return False
 
     if r is None:
@@ -326,7 +327,7 @@ def login(email, password):
 
     # Try to fetch /current_user for role & id
     try:
-        user_resp = requests.get(f"{API_URL}/current_user", headers={"Authorization": f"Bearer {token}"}, timeout=6)
+        user_resp = requests.get(f"{API_URL}/current_user", headers={"Authorization": f"Bearer {token}"}, timeout=60)
         if user_resp.status_code == 200:
             st.session_state.user = user_resp.json()
             st.session_state.role = st.session_state.user.get("role")
