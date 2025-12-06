@@ -4,3 +4,6 @@ transformers
 torch
 huggingface_hub
 pydantic
+sentence-transformers
+scikit-learn
+numpy
