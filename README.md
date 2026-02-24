@@ -1,4 +1,4 @@
-# 🐛 BugFlow - AI-Powered Bug Tracking System
+#  BugFlow - AI-Powered Bug Tracking System
 
 <div align="center">
 
@@ -16,16 +16,16 @@
 
 ---
 
-## 🎯 Features
+##  Features
 
 ### Core Functionality
 | Feature | Description |
 |---------|-------------|
-| **🔮 AI Severity Prediction** | Automatically classifies bugs as Low, Medium, High, or Critical (86.35% accuracy) |
-| **👥 Smart Team Assignment** | Routes bugs to Backend, Frontend, Mobile, or DevOps teams (83.40% accuracy) |
-| **🔍 Duplicate Detection** | Identifies similar bugs using semantic similarity (85% threshold) |
-| **📧 Email Notifications** | Sends alerts on ticket creation and status changes |
-| **🔄 MLOps Feedback Loop** | PM corrections trigger automatic model retraining |
+| ** AI Severity Prediction** | Automatically classifies bugs as Low, Medium, High, or Critical (86.35% accuracy) |
+| ** Smart Team Assignment** | Routes bugs to Backend, Frontend, Mobile, or DevOps teams (83.40% accuracy) |
+| ** Duplicate Detection** | Identifies similar bugs using semantic similarity (85% threshold) |
+| ** Email Notifications** | Sends alerts on ticket creation and status changes |
+| ** MLOps Feedback Loop** | PM corrections trigger automatic model retraining |
 
 ### Role-Based Access
 | Role | Capabilities |
@@ -36,7 +36,7 @@
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Prerequisites
 - Python 3.12+
@@ -83,7 +83,7 @@ cd frontend && streamlit run app.py --server.port 8501
 
 ---
 
-## 🏗️ Architecture
+##  Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -140,7 +140,7 @@ bugflow/
 
 ---
 
-## 🤖 ML Models
+##  ML Models
 
 ### Why CodeBERT?
 
@@ -148,10 +148,10 @@ We evaluated several models for bug classification:
 
 | Model | Pros | Cons | Decision |
 |-------|------|------|----------|
-| BERT | Well-established | Not optimized for code | ❌ |
-| GPT-3/4 | Powerful | Expensive, API dependency | ❌ |
-| DistilBERT | Fast | Less accurate | ❌ |
-| **CodeBERT** | Pre-trained on code + docs | Larger model size | ✅ **Selected** |
+| BERT | Well-established | Not optimized for code |  |
+| GPT-3/4 | Powerful | Expensive, API dependency | |
+| DistilBERT | Fast | Less accurate | |
+| **CodeBERT** | Pre-trained on code + docs | Larger model size |  **Selected** |
 
 **CodeBERT** (`microsoft/codebert-base`) is ideal because:
 - Pre-trained on 6.4M+ code-documentation pairs
@@ -211,7 +211,7 @@ TrainingArguments(
 
 ---
 
-## 📡 API Documentation
+##  API Documentation
 
 ### Authentication
 ```bash
@@ -266,7 +266,7 @@ Content-Type: application/json
 
 ---
 
-## 🔄 MLOps: Continuous Learning
+##  MLOps: Continuous Learning
 
 BugFlow supports continuous model improvement through PM feedback:
 
@@ -281,7 +281,7 @@ BugFlow supports continuous model improvement through PM feedback:
 
 ---
 
-## ☁️ Cloud Deployment
+## Cloud Deployment
 
 ### Render (Backend)
 1. Connect GitHub repo
@@ -296,7 +296,7 @@ BugFlow supports continuous model improvement through PM feedback:
 
 ---
 
-## 📊 Dataset
+##  Dataset
 
 Training dataset: 9,820 bug descriptions
 - Source: GitHub issues, Stack Overflow, synthetic data
@@ -305,7 +305,7 @@ Training dataset: 9,820 bug descriptions
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 | Component | Technology |
 |-----------|------------|
@@ -318,7 +318,7 @@ Training dataset: 9,820 bug descriptions
 
 ---
 
-## 📜 License
+##  License
 
 MIT License - feel free to use for any purpose.
 
